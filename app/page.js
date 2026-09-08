@@ -163,7 +163,15 @@ export default function Home() {
     if (appState !== "singing") return;
 
     const interval = setInterval(() => {
-      setCurrentFrame((prev) => (prev + 1) % singingFrames.length);
+      setCurrentFrame((prev) => {
+        // Pick a random frame, but never the same one twice in a
+        // row or the mouth looks like it stalled.
+        let next = Math.floor(Math.random() * singingFrames.length);
+        if (next === prev && singingFrames.length > 1) {
+          next = (next + 1) % singingFrames.length;
+        }
+        return next;
+      });
     }, FRAME_INTERVAL);
 
     return () => clearInterval(interval);
