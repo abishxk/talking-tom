@@ -1,26 +1,475 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+
+  width: 100%;
+  height: 100%;
+
+  overflow: hidden;
+
+  background: black;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+
+body {
+  font-family: var(--font-body), "Nunito", system-ui, -apple-system, sans-serif;
+
+  touch-action: manipulation;
+
+  user-select: none;
+
+  -webkit-user-select: none;
+}
+
+
+button {
+  font-family: inherit;
+}
+
+
+/* =====================================
+   MAIN APP
+===================================== */
+
+.app {
+
+  position: relative;
+
+  width: 100vw;
+  height: 100dvh;
+
+  overflow: hidden;
+
+  background: black;
+
+}
+
+
+/* =====================================
+   BACKGROUND IMAGE
+===================================== */
+
+.background {
+
+  position: absolute;
+
+  inset: 0;
+
+  width: 100%;
+  height: 100%;
+
+  object-fit: contain;
+
+  object-position: center;
+
+  pointer-events: none;
+
+  user-select: none;
+
+}
+
+
+/* =====================================
+   SCREEN BUTTON
+===================================== */
+
+.screen-button {
+
+  /* Full-bleed tap target — touch anywhere on the image */
+  position: absolute;
+
+  inset: 0;
+
+  width: 100%;
+  height: 100%;
+
+  border: none;
+
+  background: transparent;
+
+  cursor: pointer;
+
+}
+
+
+.screen-button__label {
+
+  position: absolute;
+
+  left: 50%;
+  bottom: 8%;
+
+  transform: translateX(-50%);
+
+  color: white;
+
+  font-size: 28px;
+
+  font-weight: 600;
+
+  letter-spacing: 1px;
+
+  text-transform: lowercase;
+
+  white-space: nowrap;
+
+  text-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.9);
+
+}
+
+
+/* =====================================
+   MOUTH TOUCH AREA
+===================================== */
+
+.mouth-button {
+
+  position: absolute;
+
+  /*
+    Adjust these values later
+    based on your exact image.
+  */
+
+  top: 61%;
+
+  left: 50%;
+
+  transform: translateX(-50%);
+
+  width: 5%;
+
+  height: 10%;
+
+
+  background: transparent;
+
+  border: none;
+
+  cursor: pointer;
+
+  /* inverted (point-down) triangle */
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+
+}
+
+
+/* =====================================
+   MOUTH INSTRUCTION
+===================================== */
+
+.instruction {
+
+  position: absolute;
+
+  left: 50%;
+  bottom: 8%;
+
+  transform: translateX(-50%);
+
+  color: white;
+
+  font-size: 28px;
+
+  font-weight: 600;
+
+  white-space: nowrap;
+
+  text-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.9);
+
+}
+
+
+/* =====================================
+   MODAL  ("feed me" dialog)
+
+   Vibe: bouncy toy / mobile-game panel. One committed look
+   over full-bleed photography.
+   - Type: Baloo 2 (display) for headline + button, Nunito
+     (body) for everything else.
+   - Accent LOCKED to one tangerine (#ff6a1a). Ink = #211c17.
+     Paper = #fffaf2. Error red (#e5484d) is a functional
+     state only.
+   - Shape language: every interactive surface carries the
+     2.5-3px ink outline + a hard offset shadow. Radius scale
+     card 28 / inputs 14 / button 16 / back = circle.
+===================================== */
+
+.modal-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(24, 18, 12, 0.5);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+@keyframes overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modal-pop {
+  from { opacity: 0; transform: translateY(14px) scale(0.85); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .modal-overlay {
+    animation: overlay-in 130ms ease-out;
+  }
+
+  .upload-modal {
+    animation: modal-pop 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.upload-modal {
+  position: relative;
+  width: 100%;
+  max-width: 350px;
+  padding: 30px 22px 24px;
+  border: 3px solid #211c17;
+  border-radius: 28px;
+  background: #fffaf2;
+  box-shadow: 9px 9px 0 rgba(33, 28, 23, 0.9);
+}
+
+.modal-back {
+  position: absolute;
+  top: -14px;
+  left: -14px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 2px;
+  border: 3px solid #211c17;
+  border-radius: 50%;
+  background: #fffaf2;
+  color: #211c17;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 rgba(33, 28, 23, 0.9);
+  transition: transform 90ms ease, box-shadow 90ms ease, background 120ms ease;
+}
+
+.modal-back:hover {
+  background: #ffe9d6;
+}
+
+.modal-back:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 rgba(33, 28, 23, 0.9);
+}
+
+.upload-modal h1 {
+  margin: 0;
+  font-family: var(--font-display), "Baloo 2", system-ui, sans-serif;
+  font-size: 42px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: lowercase;
+  color: #ff6a1a;
+  transform: rotate(-2.5deg);
+  transform-origin: left center;
+  -webkit-text-stroke: 1px #211c17;
+}
+
+.modal-subtitle {
+  margin: 12px 0 22px;
+  color: #8a7c68;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* --- form fields --- */
+
+.field {
+  text-align: left;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 7px;
+  color: #5c5346;
+  font-size: 11.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.text-input {
+  width: 100%;
+  height: 52px;
+  padding: 0 15px;
+  border: 2.5px solid #211c17;
+  border-radius: 14px;
+  background: #ffffff;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  color: #211c17;
+  transition: box-shadow 100ms ease, border-color 100ms ease, background 100ms ease;
+}
+
+.text-input::placeholder {
+  color: #b8ab97;
+  font-weight: 600;
+}
+
+.text-input:focus {
+  outline: none;
+  background: #fff6ec;
+  box-shadow: 3px 3px 0 #ff6a1a;
+}
+
+.text-input.is-ok {
+  background: #fff1e4;
+  box-shadow: 3px 3px 0 #ff6a1a;
+}
+
+.text-input.is-bad {
+  border-color: #e5484d;
+  box-shadow: 3px 3px 0 #e5484d;
+}
+
+.field-error {
+  margin: 8px 0 0;
+  color: #cc3a3f;
+  font-size: 12.5px;
+  font-weight: 800;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0;
+  color: #a89a84;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: lowercase;
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  height: 2.5px;
+  border-radius: 2px;
+  background: #ece0cd;
+}
+
+.file-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 10px 0 15px;
+  border: 2.5px dashed #c9bba3;
+  border-radius: 14px;
+  background: #ffffff;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.file-input:hover {
+  border-color: #211c17;
+  background: #fff6ec;
+}
+
+.file-input.has-file {
+  border-style: solid;
+  border-color: #211c17;
+  background: #fff1e4;
+  box-shadow: 3px 3px 0 #ff6a1a;
+}
+
+.file-input input {
+  display: none;
+}
+
+.file-input-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 700;
+  color: #9c8f79;
+}
+
+.file-input.has-file .file-input-text {
+  color: #211c17;
+}
+
+.file-input-cta {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border: 2.5px solid #211c17;
+  border-radius: 10px;
+  background: #ff6a1a;
+  color: #fffaf2;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+}
+
+.play-button {
+  width: 100%;
+  height: 58px;
+  margin-top: 22px;
+  border: 3px solid #211c17;
+  border-radius: 16px;
+  background: #ff6a1a;
+  color: #fffaf2;
+  font-family: var(--font-display), "Baloo 2", system-ui, sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-transform: lowercase;
+  cursor: pointer;
+  box-shadow: 5px 5px 0 rgba(33, 28, 23, 0.9);
+  transition: transform 80ms ease, box-shadow 80ms ease, filter 120ms ease;
+}
+
+.play-button:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.play-button:active:not(:disabled) {
+  transform: translate(4px, 4px);
+  box-shadow: 1px 1px 0 rgba(33, 28, 23, 0.9);
+}
+
+.play-button:disabled {
+  background: #ede4d3;
+  border-color: #c9bba3;
+  color: #b3a68f;
+  box-shadow: 3px 3px 0 rgba(201, 187, 163, 0.5);
+  cursor: not-allowed;
 }
