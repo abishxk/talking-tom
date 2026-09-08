@@ -38,6 +38,26 @@ button {
 
 
 /* =====================================
+   HIDDEN MEDIA (audio/video + YouTube iframe)
+
+   Not display:none — iOS Safari won't play media that is fully
+   hidden. Kept at 1px, transparent, and out of the way instead.
+===================================== */
+
+.hidden-media {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  border: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
+
+/* =====================================
    MAIN APP
 ===================================== */
 

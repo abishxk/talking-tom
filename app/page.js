@@ -68,10 +68,87 @@ export default function Home() {
   const [source, setSource] = useState(null);
 
   const mediaRef = useRef(null);
+  const ytHostRef = useRef(null);
   const ytPlayerRef = useRef(null);
+  const ytReadyRef = useRef(false);
+  const ytPendingPlayRef = useRef(false);
 
   const youtubeId = extractYouTubeId(youtubeInput);
   const canSing = Boolean(uploadedFile) || Boolean(youtubeId);
+
+  // Start the hidden YouTube player with sound. Must be reachable
+  // synchronously from a tap so mobile browsers allow it.
+  function playYouTube() {
+    const player = ytPlayerRef.current;
+    if (player && ytReadyRef.current) {
+      player.unMute();
+      player.setVolume(100);
+      player.playVideo();
+    } else {
+      // Player not ready yet: let onReady kick it off instead.
+      ytPendingPlayRef.current = true;
+    }
+  }
+
+  // (Re)build the YouTube player into its host node. The IFrame API
+  // swaps the mount element for an <iframe>, so we hand it a fresh
+  // child each time and destroy() cleans that child up.
+  function buildYouTubePlayer(videoId) {
+    if (!ytHostRef.current || !videoId) return;
+
+    if (ytPlayerRef.current) {
+      ytPlayerRef.current.destroy();
+      ytPlayerRef.current = null;
+    }
+    ytReadyRef.current = false;
+    ytHostRef.current.innerHTML = "";
+
+    const mount = document.createElement("div");
+    ytHostRef.current.appendChild(mount);
+
+    loadYouTubeApi().then((YT) => {
+      // Bail if the link changed while the API was loading.
+      if (!ytHostRef.current || !ytHostRef.current.contains(mount)) return;
+
+      ytPlayerRef.current = new YT.Player(mount, {
+        videoId,
+        playerVars: {
+          controls: 0,
+          disablekb: 1,
+          playsinline: 1,
+          loop: 1,
+          playlist: videoId, // required for loop to work
+        },
+        events: {
+          onReady: (event) => {
+            ytReadyRef.current = true;
+            if (ytPendingPlayRef.current) {
+              ytPendingPlayRef.current = false;
+              event.target.unMute();
+              event.target.setVolume(100);
+              event.target.playVideo();
+            }
+          },
+          onStateChange: (event) => {
+            if (event.data === YT.PlayerState.ENDED) {
+              event.target.seekTo(0);
+              event.target.playVideo();
+            }
+          },
+        },
+      });
+    });
+  }
+
+  function destroyYouTubePlayer() {
+    ytReadyRef.current = false;
+    ytPendingPlayRef.current = false;
+    if (ytPlayerRef.current) {
+      ytPlayerRef.current.destroy();
+      ytPlayerRef.current = null;
+    }
+    if (ytHostRef.current) ytHostRef.current.innerHTML = "";
+  }
 
   // Preload animation frames
   useEffect(() => {
@@ -101,9 +178,11 @@ export default function Home() {
   }
 
   function handleBack() {
+    destroyYouTubePlayer();
     setUploadedFile(null);
     setFileURL(null);
     setYoutubeInput("");
+    setSource(null);
     setAppState("mouthOpen");
   }
 
@@ -127,75 +206,67 @@ export default function Home() {
     setYoutubeInput("");
   }
 
+  // Kicked off directly by the "make me sing" tap. Playback is
+  // started synchronously here (not in an effect) because mobile
+  // browsers only allow audio to start from inside a user gesture.
   function startSinging() {
     if (youtubeId) {
       setSource({ type: "youtube", videoId: youtubeId });
       setAppState("singing");
+      playYouTube();
       return;
     }
 
     if (fileURL) {
       setSource({ type: "file" });
       setAppState("singing");
+
+      const el = mediaRef.current;
+      if (el) {
+        el.loop = true;
+        try {
+          el.currentTime = 0;
+        } catch {
+          // Some browsers throw if metadata isn't loaded yet; harmless.
+        }
+        el.play().catch((error) => {
+          console.error("Playback failed:", error);
+        });
+      }
       return;
     }
 
     alert("Paste a YouTube link or choose an audio/video file.");
   }
 
-  // Drive the local <audio>/<video> element.
+  // Prime the YouTube player as soon as there's a valid link, so it
+  // is already "ready" when the user taps and playback can start
+  // inside that gesture. Rebuilds when the link changes; tears down
+  // when it clears or the component unmounts.
   useEffect(() => {
-    if (appState !== "singing" || source?.type !== "file") return;
-    if (!mediaRef.current) return;
-
-    mediaRef.current.loop = true;
-    mediaRef.current.currentTime = 0;
-    mediaRef.current.play().catch((error) => {
-      console.error("Playback failed:", error);
-    });
-  }, [appState, source]);
-
-  // Drive a hidden YouTube player, looping forever.
-  useEffect(() => {
-    if (appState !== "singing" || source?.type !== "youtube") return;
-
-    let cancelled = false;
-
-    loadYouTubeApi().then((YT) => {
-      if (cancelled) return;
-
-      ytPlayerRef.current = new YT.Player("yt-player", {
-        videoId: source.videoId,
-        playerVars: {
-          autoplay: 1,
-          controls: 0,
-          disablekb: 1,
-          playsinline: 1,
-          loop: 1,
-          playlist: source.videoId, // required for loop to work
-        },
-        events: {
-          onReady: (event) => {
-            event.target.setVolume(100);
-            event.target.playVideo();
-          },
-          onStateChange: (event) => {
-            if (event.data === YT.PlayerState.ENDED) {
-              event.target.seekTo(0);
-              event.target.playVideo();
-            }
-          },
-        },
-      });
-    });
+    if (!youtubeId) return;
+    buildYouTubePlayer(youtubeId);
 
     return () => {
-      cancelled = true;
-      if (ytPlayerRef.current) {
-        ytPlayerRef.current.destroy();
-        ytPlayerRef.current = null;
-      }
+      destroyYouTubePlayer();
     };
+  }, [youtubeId]);
+
+  // Safety net for the local <audio>/<video> element: if we're in the
+  // singing state and it isn't playing (e.g. the gesture call raced
+  // the element mounting), try again.
+  useEffect(() => {
+    if (appState !== "singing" || source?.type !== "file") return;
+
+    const el = mediaRef.current;
+    if (!el) return;
+
+    el.loop = true;
+    if (el.paused) {
+      el.play().catch((error) => {
+        console.error("Playback failed:", error);
+      });
+    }
   }, [appState, source]);
 
   function stopSinging() {
@@ -214,10 +285,7 @@ export default function Home() {
     if (fileURL) {
       URL.revokeObjectURL(fileURL);
     }
-    if (ytPlayerRef.current) {
-      ytPlayerRef.current.destroy();
-      ytPlayerRef.current = null;
-    }
+    destroyYouTubePlayer();
 
     setUploadedFile(null);
     setFileURL(null);
@@ -398,26 +466,38 @@ export default function Home() {
         </>
       )}
 
-      {/* LOCAL MEDIA (audio/video file) */}
-      {source?.type === "file" && fileURL && uploadedFile && (
+      {/* LOCAL MEDIA (audio/video file) — mounted as soon as a file is
+          picked so playback can be started from the "make me sing" tap.
+          Kept on-screen but 1px/invisible: iOS Safari refuses to play
+          media that is display:none. */}
+      {fileURL && uploadedFile && (
         uploadedFile.type.startsWith("audio/") ? (
-          <audio ref={mediaRef} src={fileURL} loop />
+          <audio
+            ref={mediaRef}
+            src={fileURL}
+            loop
+            preload="auto"
+          />
         ) : (
           <video
             ref={mediaRef}
             src={fileURL}
             loop
+            preload="auto"
             playsInline
-            style={{ display: "none" }}
+            className="hidden-media"
           />
         )
       )}
 
-      {/* HIDDEN YOUTUBE PLAYER */}
-      {source?.type === "youtube" && (
-        <div className="yt-player-wrap" aria-hidden="true">
-          <div id="yt-player" />
-        </div>
+      {/* HIDDEN YOUTUBE PLAYER — present whenever there's a link so it
+          can be primed before the tap. */}
+      {(youtubeId || source?.type === "youtube") && (
+        <div
+          ref={ytHostRef}
+          className="hidden-media"
+          aria-hidden="true"
+        />
       )}
 
     </main>
